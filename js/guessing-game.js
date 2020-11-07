@@ -4,15 +4,15 @@ function getNumber() {
 }
 
 /* check if valid guess, display error message if not */
-function validGuess(guess) {
-    if (!Number(guess)) {
-        document.getElementById('msg').innerHTML = 'Guess must be a number.';
+function validGuess(guess, msg, previousGuesses) {
+    if (isNaN(guess)) {
+        msg.innerHTML = 'Guess must be a number.';
         return false;
-    } else if (guess < 0 || guess > 100) {
-        document.getElementById('msg').innerHTML = 'Guess must be between 0 and 100.';
+    } if (guess < 1 || guess > 100) {
+        msg.innerHTML = 'Guess must be between 1 and 100.';
         return false;
-    } else if (previousGuesses.includes(guess)) {
-        document.getElementById('msg').innerHTML = 'Please enter a new guess.'
+    } if (previousGuesses.includes(guess)) {
+        msg.innerHTML = 'Please enter a new guess.'
         return false;
     } return true;
 }
@@ -24,96 +24,119 @@ function dist(guess, num) {
 
 /* generate clues */
 function getHotOrCold(guess, num, previousGuesses) {
-    if (dist(guess, num) < 5) {
-        return "You're super close!";
-    } if (previousGuesses.length === 1) { /* no previous guesses */
-        if (dist(guess, num) < 30) {
-            return "You're getting warmer...";
-        } else {
-            return "Hmm, nothing here.";
-        }
+    let guessHigher = num > guess ? true : false;
+    let clue = '';
+    if (guessHigher) {
+        clue += 'higher';
     } else {
+        clue += 'lower';
+    }
+
+    if (dist(guess, num) <= 5) {
+        return "You're super close!";
+    } if (dist(guess, num) <= 10) {
+        return `You're warming up! Try ${clue}.`;
+    } if (dist(guess, num) >= 50) {
+        return `You're ice cold. Go ${clue}.`;
+    }
+
+    if (previousGuesses.length === 1) { /* no previous guesses */
+        if (dist(guess, num) <= 30) {
+            return `You're getting warmer... Try ${clue}.`;
+        } else {
+            return `Hmm, nothing here. Try ${clue}.`;
+        }
+    } else { /* compare to previous guesses */
         let prev = previousGuesses[previousGuesses.length - 2];
         if (dist(guess, num) < dist(prev, num)) {
-            return "You're getting closer!";
+            return `You're getting warmer. Try ${clue}.`;
         } else {
-            if (dist(guess, num) > 50) {
-                return "You're ice cold.";
-            } else {
-                return "Nope, nothing here.";
-            }
+            return `Nope, getting colder. Try ${clue}.`;
         }
     }
 }
 
-/* set up the game */
-let num = getNumber();
-let previousGuesses = [];
-let attemptsLeft = 5;
-let hints = 1;
-let won = false;
-const submitted = document.getElementById('submit');
-const reset = document.getElementById('reset');
-const hint = document.getElementById('hint');
+function main() {
 
-/* process guess */
-submitted.addEventListener('click', () => {
+    /* set up the game */
+    let num = getNumber();
+    let previousGuesses = [];
+    let attemptsLeft = 5;
+    let hints = 1;
+    let won = false;
+    const msg = document.getElementById('msg');
+    const remaining = document.getElementById('remaining');
+    const submitted = document.getElementById('submit');
+    const inputBox = document.getElementById('guess');
+    const reset = document.getElementById('reset');
+    const hint = document.getElementById('hint');
 
-    if (attemptsLeft > 0 && !won) {
-        let guess = document.getElementById('guess').value;
-        document.getElementById('guess').value = '';
+    function processGuess() {
+        if (attemptsLeft > 0 && !won) {
+            let guess = document.getElementById('guess').value;
+            document.getElementById('guess').value = '';
 
-        /* display messages */
-        if (validGuess(guess)) {
-            previousGuesses.push(guess);
-            attemptsLeft--;
+            /* display messages */
+            if (validGuess(guess, msg, previousGuesses)) {
+                previousGuesses.push(guess);
+                attemptsLeft--;
 
-            if (attemptsLeft === 1) { /* remaining guesses */
-                document.getElementById('remaining').innerHTML = `${attemptsLeft} guess remaining`;
-            } else {
-                document.getElementById('remaining').innerHTML = `${attemptsLeft} guesses remaining`;
-            }
+                if (attemptsLeft === 1) { /* remaining guesses */
+                    remaining.innerHTML = `${attemptsLeft} guess remaining`;
+                } else {
+                    remaining.innerHTML = `${attemptsLeft} guesses remaining`;
+                }
 
-            document.getElementById(`g${5 - attemptsLeft}`).innerHTML = guess; /* record of guesses */
+                document.getElementById(`g${5 - attemptsLeft}`).innerHTML = guess; /* record of guesses */
 
-            if (Number(guess) === num) { /* winning message */
-                document.getElementById('msg').innerHTML = `You won! The number was ${num}.`;
-                won = true;
-            } else if (attemptsLeft === 0) { /* losing message */
-                document.getElementById('msg').innerHTML = `The number was ${num}. <br> Better luck next time!`;
-            } else { /* clues */
-                document.getElementById('msg').innerHTML = getHotOrCold(guess, num, previousGuesses);
+                if (Number(guess) === num) { /* winning message */
+                    msg.innerHTML = `You won! The number was ${num}.`;
+                    won = true;
+                } else if (attemptsLeft === 0) { /* losing message */
+                    msg.innerHTML = `Aw, shucks. The number was ${num}.`;
+                } else { /* clues */
+                    msg.innerHTML = getHotOrCold(guess, num, previousGuesses);
+                }
             }
         }
     }
 
-});
+    submitted.addEventListener('click', () => { /* listen for click */
+        processGuess();
+    });
 
-/* reset the game */
-reset.addEventListener('click', () => {
-    num = getNumber();
-    previousGuesses = [];
-    attemptsLeft = 5;
-    hints = 1;
-    won = false;
-    document.getElementById('msg').innerHTML = '&nbsp;';
-    for (let i = 1; i < 6; i++) {
-        document.getElementById(`g${i}`).innerHTML = ' - ';
-    }
-    document.getElementById('remaining').innerHTML = '5 guesses remaining';
-});
-
-/* give a hint, a single hint */
-hint.addEventListener('click', () => {
-    if (hints === 0) {
-        document.getElementById('msg').innerHTML = 'No more hints!';
-    } else if (attemptsLeft > 0 && !won) {
-        let hint = [];
-        for (let i = 0; i < 3; i++) {
-            hint[i] = Math.ceil(Math.random() * 100);
+    inputBox.addEventListener('keydown', (e) => { /* listen for enter */
+        if (e.key === 'Enter') {
+            processGuess();
         }
-        hint[Math.floor(Math.random() * 3)] = num;
-        document.getElementById('msg').innerHTML = `${hint[0]}, ${hint[1]}, ${hint[2]}`;
-        hints--;
-    }
-});
+    });
+
+    reset.addEventListener('click', () => { /* reset the game */
+        num = getNumber();
+        previousGuesses = [];
+        attemptsLeft = 5;
+        hints = 1;
+        won = false;
+        msg.innerHTML = '&nbsp;';
+        for (let i = 1; i < 6; i++) {
+            document.getElementById(`g${i}`).innerHTML = ' - ';
+        }
+        remaining.innerHTML = '5 guesses remaining';
+    });
+
+    hint.addEventListener('click', () => { /* give a hint, a single hint */
+        if (hints === 0) {
+            msg.innerHTML = 'No more hints!';
+        } else if (attemptsLeft > 0 && !won) {
+            let hint = [];
+            for (let i = 0; i < 3; i++) {
+                hint[i] = Math.ceil(Math.random() * 100);
+            }
+            hint[Math.floor(Math.random() * 3)] = num;
+            msg.innerHTML = `${hint[0]}, ${hint[1]}, ${hint[2]}`;
+            hints--;
+        }
+    });
+}
+
+main();
